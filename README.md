@@ -45,14 +45,14 @@ helm upgrade --install postgresql \
    -n demo \
    --create-namespace \
    oci://registry-1.docker.io/bitnamicharts/postgresql \
-   -f postgresql.yaml 
+   -f helm/postgresql.yaml 
 
 # user is admin and password passw0rd
 helm upgrade --install minio \
     -n demo \
     --create-namespace \
     oci://registry-1.docker.io/bitnamicharts/minio \
-    -f minio.yaml
+    -f helm/minio.yaml
 ```
 
 and initialize them with the correspondent initialization scripts:
@@ -99,7 +99,7 @@ Created snapshot with root k15e1fe06bbb9d248e75e4c6a1d410dd4 and ID 279fdacbe2ad
 2023-12-05 12:33:20.856519772 -- #8 snapshot created
 </pre>
 
-Insert this value in the restore actionset for restoring that backup level. Note there are two places
+For restoring: insert this value in the restore actionset for restoring that backup level. Note there are two places
 where this value needs to be changed.
 <pre>
 artifacts:
@@ -108,6 +108,11 @@ artifacts:
       pvc: data-postgresql-0
 <b>     backupId: "20231205123317"</b>
 </pre>
+
+then create the restore actionset by doing:
+```bash
+kubectl create -f actions/restore.yaml
+```
 
 
 ## Appendix A: How to setup a k3s based environment
