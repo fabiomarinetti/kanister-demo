@@ -1,0 +1,43 @@
+apiVersion: cr.kanister.io/v1alpha1
+kind: ActionSet
+metadata:
+  generateName: delete-
+  namespace: kanister
+spec:
+  actions:
+  - name: delete
+    blueprint: demo
+    object:
+      kind: StatefulSet
+      name: postgresql
+      namespace: demo
+    configMaps:
+      location:
+        name: s3-location      
+        namespace: kanister
+    secrets:
+      creds:
+        name: s3-creds
+        namespace: kanister
+    artifacts:
+      backupId:
+        keyValue:
+          value: "20231204091046"
+  - name: delete
+    blueprint: demo
+    object:
+      kind: Deployment
+      name: minio
+      namespace: demo
+    configMaps:
+      location:
+        name: s3-location
+        namespace: kanister
+    secrets:
+      creds:
+        name: s3-creds
+        namespace: kanister
+    artifacts:
+      backupId:
+        keyValue:
+          value: "20231204091046"        

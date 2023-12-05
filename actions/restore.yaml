@@ -1,0 +1,45 @@
+apiVersion: cr.kanister.io/v1alpha1
+kind: ActionSet
+metadata:
+  generateName: restore-
+  namespace: kanister
+spec:
+  actions:
+  - name: restore
+    blueprint: demo
+    object:
+      kind: StatefulSet
+      name: postgresql
+      namespace: demo
+    configMaps:
+      location:
+        name: s3-location      
+        namespace: kanister
+    secrets:
+      creds:
+        name: s3-creds
+        namespace: kanister
+    artifacts:
+      context:
+        keyValue:
+          pvc: data-postgresql-0
+          backupId: "20231204091046"
+  - name: restore
+    blueprint: demo
+    object:
+      kind: Deployment
+      name: minio
+      namespace: demo
+    configMaps:
+      location:
+        name: s3-location
+        namespace: kanister
+    secrets:
+      creds:
+        name: s3-creds
+        namespace: kanister
+    artifacts:
+      context:
+        keyValue:
+          pvc: minio
+          backupId: "20231204091046"        

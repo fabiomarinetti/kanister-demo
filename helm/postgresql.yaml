@@ -1,0 +1,21 @@
+# helm upgrade --install postgresql oci://registry-1.docker.io/bitnamicharts/postgresql \
+#   -f postgresql.yaml 
+
+auth:
+  username: pgadmin
+  password: passw0rd
+primary:
+  sidecars:
+  - name: kanister-tools
+    #image: kopia/kopia:20231117.0.210212
+    image: ghcr.io/kanisterio/kanister-tools:0.100.0
+    imagePullPolicy: Always
+    volumeMounts:
+    - mountPath: /bitnami/postgresql
+      name: data        
+    command:
+    - bash 
+    - -c
+    - |
+      touch /var/log/kopia.log
+      tail -f /var/log/kopia.log

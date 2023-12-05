@@ -1,0 +1,43 @@
+apiVersion: cr.kanister.io/v1alpha1
+kind: ActionSet
+metadata:
+  generateName: backup-
+  namespace: kanister
+spec:
+  actions:    
+  - name: backup
+    blueprint: demo
+    object:
+      kind: StatefulSet
+      name: postgresql
+      namespace: demo
+    configMaps:
+      location:
+        name: s3-location      
+        namespace: kanister
+    secrets:
+      creds:
+        name: s3-creds
+        namespace: kanister
+    artifacts:
+      path:
+        keyValue:   
+          value: /bitnami/postgresql
+  - name: backup
+    blueprint: demo
+    object:
+      kind: Deployment
+      name: minio
+      namespace: demo
+    configMaps:
+      location:
+        name: s3-location
+        namespace: kanister
+    secrets:
+      creds:
+        name: s3-creds
+        namespace: kanister
+    artifacts:
+      path:
+        keyValue:
+          value: /bitnami/minio/data        

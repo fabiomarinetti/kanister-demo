@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: s3-location
+  namespace: kanister
+data:
+  bucket: $BUCKET_NAME
+  region: $AWS_REGION
+  endpoint: s3.amazonaws.com
+  prefix: demo

@@ -1,0 +1,19 @@
+# helm upgrade --install minio oci://registry-1.docker.io/bitnamicharts/minio \
+#   -f minio.yaml 
+auth:
+  rootUser: admin
+  rootPassword: passw0rd
+sidecars:
+- name: kanister-tools
+  #image: kopia/kopia:20231117.0.210212
+  image: ghcr.io/kanisterio/kanister-tools:0.100.0
+  imagePullPolicy: Always
+  volumeMounts:
+  - mountPath: /bitnami/minio/data
+    name: data
+  command:
+  - bash
+  - -c
+  - |
+    touch /var/log/kopia.log
+    tail -f /var/log/kopia.log  

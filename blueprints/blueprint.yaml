@@ -1,0 +1,128 @@
+---
+apiVersion: cr.kanister.io/v1alpha1
+kind: Blueprint
+metadata:
+  name: demo
+  namespace: kanister
+actions:
+  backup:      
+    inputArtifactNames:
+    - path  
+    configMapNames:
+    - location
+    secretNames:
+    - creds            
+    phases:
+    - func: KubeExec
+      name: takeSnapshot
+      args:
+        namespace: "{{ .Object.metadata.namespace }}"
+        pod: "{{ $object := (or .Deployment .StatefulSet) }}{{ index $object.Pods 0 }}"
+        container: kanister-tools
+        command:
+        - sh
+        - -c
+        - |
+          kopia repository connect s3 \
+            --bucket={{ .ConfigMaps.location.Data.bucket }} \
+            --endpoint={{ .ConfigMaps.location.Data.endpoint }} \
+            --region={{ .ConfigMaps.location.Data.region }} \
+            --prefix={{ .ConfigMaps.location.Data.prefix }}/ \
+            --access-key={{ .Secrets.creds.Data.access_key_id | toString }} \
+            --secret-access-key={{ .Secrets.creds.Data.secret_access_key | toString }} \
+            --password={{ .Secrets.creds.Data.password | toString }}
+          appName={{ .Object.metadata.name }}  
+          echo "$(date +'%Y-%m-%d %H:%M:%S.%N') -- #$$ -- application name: {{ .Object.metadata.name }}" >>/var/log/kopia.log
+          backupId={{ toDate "2006-01-02T15:04:05.999999999Z07:00" .Time | date "20060102150405" }}
+          echo "$(date +'%Y-%m-%d %H:%M:%S.%N') -- #$$ -- create snapshot for backupId: $backupId" >>/var/log/kopia.log
+          kopia snapshot create \
+            --tags=backupid:$backupId \
+            --tags=application:$appName \
+            {{ .ArtifactsIn.path.KeyValue.value }} &>>/var/log/kopia.log          
+          echo "$(date +'%Y-%m-%d %H:%M:%S.%N') -- #$$ snapshot created" >>/var/log/kopia.log
+          kopia repository disconnect  
+  restore:
+    inputArtifactNames:
+    # context:  
+    # @pvc --> name of pvc
+    # @backupId --> the backup Id
+    - context
+    configMapNames:
+    - location
+    secretNames:
+    - creds  
+    phases:
+    - func: ScaleWorkload
+      name: shutdownApplication
+      args:
+        namespace: "{{ .Object.metadata.namespace }}"
+        name: "{{ .Object.metadata.name }}"
+        kind: "{{ lower .Object.kind }}"
+        replicas: 0
+    - func: PrepareData
+      name: restoreSnapshot
+      args:
+        namespace: "{{ .Object.metadata.namespace }}"
+        image: ghcr.io/kanisterio/kanister-tools:0.100.0
+        volumes:
+          "{{ .ArtifactsIn.context.KeyValue.pvc }}": "/mnt/data"
+        command:
+        - sh
+        - -c
+        - |
+          kopia repository connect s3 \
+            --bucket={{ .ConfigMaps.location.Data.bucket }} \
+            --endpoint={{ .ConfigMaps.location.Data.endpoint }} \
+            --region={{ .ConfigMaps.location.Data.region }} \
+            --prefix={{ .ConfigMaps.location.Data.prefix }}/ \
+            --access-key={{ .Secrets.creds.Data.access_key_id | toString }} \
+            --secret-access-key={{ .Secrets.creds.Data.secret_access_key | toString }} \
+            --password={{ .Secrets.creds.Data.password | toString }}
+          backupId={{ .ArtifactsIn.context.KeyValue.backupId }}
+          echo "$(date +'%Y-%m-%d %H:%M:%S.%N') -- #$$ -- backup Id: $backupId" 
+          appName={{ .Object.metadata.name }}
+          echo "$(date +'%Y-%m-%d %H:%M:%S.%N') -- #$$ -- application name: {{ .Object.metadata.name }}"
+          snapshotId=$(kopia snapshot list --all --tags=backupid:$backupId --tags=application:$appName | awk '{print $4}' | grep "\S")
+          echo "$(date +'%Y-%m-%d %H:%M:%S.%N') -- #$$ -- restore snapshot: $snapshotId"
+          kopia snapshot restore $snapshotId /mnt/data
+          [ $? -eq 0 ] || exit $?
+          echo "$(date +'%Y-%m-%d %H:%M:%S.%N') -- #$$ -- snapshot restored successfully"
+          kopia repository disconnect
+    - func: ScaleWorkload
+      name: startupApplication
+      args:
+        namespace: "{{ .Object.metadata.namespace }}"
+        name: "{{ .Object.metadata.name }}"
+        kind: "{{ lower .Object.kind }}"
+        replicas: 1
+        waitForReady: yes     
+  delete:
+    inputArtifactNames:
+      - backupId
+    phases:
+    - func: KubeTask
+      name: deleteSnapshot
+      args:
+        namespace: "{{ .Object.metadata.namespace }}"
+        image: ghcr.io/kanisterio/kanister-tools:0.100.0
+        command:
+        - bash
+        - -c
+        - |
+          kopia repository connect s3 \
+            --bucket={{ .ConfigMaps.location.Data.bucket }} \
+            --endpoint={{ .ConfigMaps.location.Data.endpoint }} \
+            --region={{ .ConfigMaps.location.Data.region }} \
+            --prefix={{ .ConfigMaps.location.Data.prefix }}/ \
+            --access-key={{ .Secrets.creds.Data.access_key_id | toString }} \
+            --secret-access-key={{ .Secrets.creds.Data.secret_access_key | toString }} \
+            --password={{ .Secrets.creds.Data.password | toString }}
+          backupId={{ .ArtifactsIn.backupId.KeyValue.value }}
+          echo "$(date +'%Y-%m-%d %H:%M:%S.%N') -- #$$ -- backup Id: $backupId"
+          appName={{ .Object.metadata.name }}
+          echo "$(date +'%Y-%m-%d %H:%M:%S.%N') -- #$$ -- application name: {{ .Object.metadata.name }}"
+          snapshotId=$(kopia snapshot list --all --tags=backupid:$backupId --tags=application:$appName | awk '{print $4}' | grep "\S")
+          echo "$(date +'%Y-%m-%d %H:%M:%S.%N') -- #$$ -- delete snapshot: $snapshotId"
+          kopia snapshot delete $snapshotId --delete
+          echo "$(date +'%Y-%m-%d %H:%M:%S.%N') -- #$$ -- snapshot deleted successfully"
+          kopia repository disconnect  
