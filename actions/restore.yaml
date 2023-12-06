@@ -23,7 +23,7 @@ spec:
       context:
         keyValue:
           pvc: data-postgresql-0
-          backupId: "20231204091046"
+          backupId: "20231206100619"
   - name: restore
     blueprint: demo
     object:
@@ -42,4 +42,4 @@ spec:
       context:
         keyValue:
           pvc: minio
-          backupId: "20231204091046"        
+          backupId: "20231206100619"        

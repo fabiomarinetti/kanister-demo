@@ -29,7 +29,7 @@ export KOPIA_PASSWORD=<super_secure_password>
 
 Finally create the kopia repository in your S3 bucket by issuing:
 ```bash
-kopia repository create --bucket=$BUCKET_NAME \
+kopia repository create s3 --bucket=$BUCKET_NAME \
   --region=$AWS_REGION \
   --prefix=demo/ \
   --access-key=$AWS_ACCESS_KEY_ID \
@@ -58,7 +58,7 @@ helm upgrade --install minio \
 and initialize them with the correspondent initialization scripts:
 ```bash
 kubectl cp -n demo init/postgres.sh postgresql-0:/tmp/init.sh
-kubectl exec -it -n demo postgresql-0:/tmp/init.sh
+kubectl exec -it -n demo postgresql-0 -- /tmp/init.sh
 
 minio_pod=$(kubectl get pods --selector=app.kubernetes.io/name=minio -o jsonpath="{ .items[0].metadata.name }")
 kubectl cp -n demo init/minio.sh $minio_pod:/tmp/init.sh
@@ -68,6 +68,9 @@ kubectl exec -it -n demo $minio_pod -- /tmp/init.sh
 ## Upload blueprint definition and related resources
 Upload ConfigMap and Secret containing the details for connecting your remote repository (i.e. bucket location, aws credentials and repository password)
 ```bash
+export ENCODED_AWS_ACCESS_KEY_ID=$(echo -n $AWS_ACCESS_KEY_ID | base64)
+export ENCODED_AWS_SECRET_ACCESS_KEY=$(echo -n $AWS_SECRET_ACCESS_KEY | base64)
+export ENCODED_KOPIA_PASSWORD=$(echo -n $KOPIA_PASSWORD | base64)
 envsubst < resources/location.yaml | kubectl apply -f -
 envsubst < resources/credentials.yaml | kubectl apply -f -
 ```

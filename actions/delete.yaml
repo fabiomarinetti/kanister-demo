@@ -22,7 +22,7 @@ spec:
     artifacts:
       backupId:
         keyValue:
-          value: "20231204091046"
+          value: "20231206100619"
   - name: delete
     blueprint: demo
     object:
@@ -40,4 +40,4 @@ spec:
     artifacts:
       backupId:
         keyValue:
-          value: "20231204091046"        
+          value: "20231206100619"
